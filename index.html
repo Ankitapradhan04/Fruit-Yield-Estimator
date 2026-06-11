@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FruitYield — AI Crop Estimation</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- API Key Modal -->
+  <div id="api-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-leaf">🌿</div>
+      <h2>Enter Your API Key</h2>
+      <p>Your Anthropic API key is stored only in your browser session and never sent anywhere except directly to Anthropic's servers.</p>
+      <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off" />
+      <div class="modal-actions">
+        <button id="save-key-btn" class="btn-primary">Start Estimating</button>
+        <a href="https://console.anthropic.com/keys" target="_blank" class="modal-link">Get a free API key →</a>
+      </div>
+      <p class="modal-note">Key is cleared when you close this tab.</p>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-mark">🌾</span>
+        <span class="logo-text">FruitYield</span>
+      </div>
+      <nav>
+        <button id="change-key-btn" class="btn-ghost">Change API Key</button>
+        <button id="history-toggle" class="btn-ghost">History</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg-orbs">
+      <div class="orb orb-1"></div>
+      <div class="orb orb-2"></div>
+      <div class="orb orb-3"></div>
+    </div>
+    <div class="hero-content">
+      <span class="hero-eyebrow">AI-Powered Agricultural Intelligence</span>
+      <h1 class="hero-title">Predict Your<br/><em>Harvest Yield</em></h1>
+      <p class="hero-sub">Enter your farm's conditions and get an AI-driven yield estimate with actionable farming recommendations — in seconds.</p>
+    </div>
+    <div class="hero-scroll-hint">↓ Start Below</div>
+  </section>
+
+  <!-- Main App -->
+  <main class="app-container">
+    <!-- Form Card -->
+    <section class="card form-card">
+      <div class="card-header">
+        <h2>Farm Parameters</h2>
+        <p>Fill in your current crop conditions for the most accurate estimate.</p>
+      </div>
+
+      <div class="form-grid">
+        <!-- Fruit Type -->
+        <div class="form-group span-2">
+          <label for="fruit-type">Fruit / Crop Type</label>
+          <div class="select-wrapper">
+            <select id="fruit-type">
+              <option value="">— Select a fruit —</option>
+              <optgroup label="Tropical">
+                <option value="Mango">Mango</option>
+                <option value="Banana">Banana</option>
+                <option value="Papaya">Papaya</option>
+                <option value="Pineapple">Pineapple</option>
+                <option value="Guava">Guava</option>
+                <option value="Jackfruit">Jackfruit</option>
+                <option value="Litchi">Litchi</option>
+              </optgroup>
+              <optgroup label="Citrus">
+                <option value="Orange">Orange</option>
+                <option value="Lemon">Lemon</option>
+                <option value="Lime">Lime</option>
+                <option value="Grapefruit">Grapefruit</option>
+                <option value="Mandarin">Mandarin</option>
+              </optgroup>
+              <optgroup label="Berries">
+                <option value="Strawberry">Strawberry</option>
+                <option value="Blueberry">Blueberry</option>
+                <option value="Grapes">Grapes</option>
+              </optgroup>
+              <optgroup label="Temperate">
+                <option value="Apple">Apple</option>
+                <option value="Pear">Pear</option>
+                <option value="Peach">Peach</option>
+                <option value="Plum">Plum</option>
+                <option value="Cherry">Cherry</option>
+              </optgroup>
+              <optgroup label="Other">
+                <option value="Watermelon">Watermelon</option>
+                <option value="Pomegranate">Pomegranate</option>
+                <option value="Avocado">Avocado</option>
+                <option value="Custom (describe below)">Custom / Other</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        <!-- Land Area -->
+        <div class="form-group">
+          <label for="land-area">Land Area</label>
+          <div class="input-unit-group">
+            <input type="number" id="land-area" placeholder="e.g. 2.5" min="0.01" step="0.01" />
+            <select id="land-unit">
+              <option value="acres">Acres</option>
+              <option value="hectares">Hectares</option>
+              <option value="bigha">Bigha</option>
+              <option value="sq meters">Sq. Meters</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Tree Count -->
+        <div class="form-group">
+          <label for="tree-count">Number of Trees / Plants</label>
+          <input type="number" id="tree-count" placeholder="e.g. 120" min="1" />
+        </div>
+
+        <!-- Tree Age -->
+        <div class="form-group">
+          <label for="tree-age">Average Tree / Plant Age</label>
+          <div class="input-unit-group">
+            <input type="number" id="tree-age" placeholder="e.g. 5" min="0" />
+            <select id="age-unit">
+              <option value="years">Years</option>
+              <option value="months">Months</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Season -->
+        <div class="form-group">
+          <label for="season">Current Season</label>
+          <div class="select-wrapper">
+            <select id="season">
+              <option value="Summer">Summer</option>
+              <option value="Monsoon / Rainy">Monsoon / Rainy</option>
+              <option value="Post-Monsoon">Post-Monsoon</option>
+              <option value="Winter">Winter</option>
+              <option value="Spring">Spring</option>
+              <option value="Autumn">Autumn</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Soil Type -->
+        <div class="form-group">
+          <label for="soil-type">Soil Type</label>
+          <div class="select-wrapper">
+            <select id="soil-type">
+              <option value="Red loamy">Red Loamy</option>
+              <option value="Black cotton">Black Cotton</option>
+              <option value="Alluvial">Alluvial</option>
+              <option value="Sandy loam">Sandy Loam</option>
+              <option value="Clay">Clay</option>
+              <option value="Laterite">Laterite</option>
+              <option value="Silty">Silty</option>
+              <option value="Unknown">Unknown / Other</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Irrigation -->
+        <div class="form-group">
+          <label for="irrigation">Irrigation Method</label>
+          <div class="select-wrapper">
+            <select id="irrigation">
+              <option value="Drip irrigation">Drip Irrigation</option>
+              <option value="Sprinkler">Sprinkler</option>
+              <option value="Flood/furrow">Flood / Furrow</option>
+              <option value="Rainfed only">Rainfed Only</option>
+              <option value="Mixed">Mixed</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Fertilizer -->
+        <div class="form-group">
+          <label for="fertilizer">Fertilizer Usage</label>
+          <div class="select-wrapper">
+            <select id="fertilizer">
+              <option value="Organic (compost/manure)">Organic (Compost / Manure)</option>
+              <option value="Chemical (NPK)">Chemical (NPK)</option>
+              <option value="Mixed organic + chemical">Mixed</option>
+              <option value="None">None</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Rainfall -->
+        <div class="form-group">
+          <label for="rainfall">Recent Rainfall <span class="label-hint">(last 30 days)</span></label>
+          <div class="input-unit-group">
+            <input type="number" id="rainfall" placeholder="e.g. 80" min="0" />
+            <span class="unit-label">mm</span>
+          </div>
+        </div>
+
+        <!-- Temperature -->
+        <div class="form-group">
+          <label for="temperature">Avg. Temperature</label>
+          <div class="input-unit-group">
+            <input type="number" id="temperature" placeholder="e.g. 28" />
+            <select id="temp-unit">
+              <option value="°C">°C</option>
+              <option value="°F">°F</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Health Status -->
+        <div class="form-group span-2">
+          <label for="health">Crop Health Status</label>
+          <div class="health-slider-group">
+            <input type="range" id="health" min="1" max="5" value="3" />
+            <div class="health-labels">
+              <span>Poor</span>
+              <span>Below Avg</span>
+              <span>Average</span>
+              <span>Good</span>
+              <span>Excellent</span>
+            </div>
+            <div class="health-value-display">
+              <span id="health-display">Average</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pest/Disease -->
+        <div class="form-group">
+          <label for="pest">Pest / Disease Pressure</label>
+          <div class="select-wrapper">
+            <select id="pest">
+              <option value="None observed">None Observed</option>
+              <option value="Low">Low</option>
+              <option value="Moderate">Moderate</option>
+              <option value="High">High</option>
+              <option value="Severe">Severe</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Previous Year Yield -->
+        <div class="form-group">
+          <label for="prev-yield">Last Season's Yield <span class="label-hint">(optional)</span></label>
+          <div class="input-unit-group">
+            <input type="number" id="prev-yield" placeholder="e.g. 4500" min="0" />
+            <select id="yield-unit">
+              <option value="kg">kg</option>
+              <option value="tonnes">Tonnes</option>
+              <option value="quintals">Quintals</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-group span-2">
+          <label for="notes">Additional Notes <span class="label-hint">(optional)</span></label>
+          <textarea id="notes" rows="3" placeholder="Describe any specific conditions: recent weather events, variety name, market prices, or anything else the AI should know..."></textarea>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button id="estimate-btn" class="btn-primary btn-large">
+          <span class="btn-icon">🌱</span>
+          <span id="estimate-btn-text">Estimate Yield</span>
+        </button>
+        <button id="reset-btn" class="btn-ghost">Reset Form</button>
+      </div>
+    </section>
+
+    <!-- Results Card -->
+    <section id="results-section" class="card results-card hidden">
+      <div class="card-header results-header">
+        <h2>Yield Estimate</h2>
+        <button id="copy-btn" class="btn-ghost btn-sm">📋 Copy</button>
+      </div>
+
+      <!-- Yield Meter -->
+      <div class="yield-hero">
+        <div class="yield-meter-wrap">
+          <svg class="yield-meter" viewBox="0 0 220 130" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#e07b39"/>
+                <stop offset="50%" stop-color="#6bba5e"/>
+                <stop offset="100%" stop-color="#2e8b57"/>
+              </linearGradient>
+            </defs>
+            <!-- Background arc -->
+            <path d="M 20 115 A 90 90 0 0 1 200 115" fill="none" stroke="#e8e3d8" stroke-width="14" stroke-linecap="round"/>
+            <!-- Foreground arc -->
+            <path id="meter-arc" d="M 20 115 A 90 90 0 0 1 200 115" fill="none" stroke="url(#arcGrad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="0 283"/>
+            <!-- Needle -->
+            <line id="meter-needle" x1="110" y1="115" x2="110" y2="40" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" transform="rotate(0, 110, 115)"/>
+            <circle cx="110" cy="115" r="6" fill="#1a1a1a"/>
+            <!-- Labels -->
+            <text x="15" y="130" fill="#999" font-size="9" font-family="Inter">Low</text>
+            <text x="96" y="20" fill="#999" font-size="9" font-family="Inter">Avg</text>
+            <text x="194" y="130" fill="#999" font-size="9" font-family="Inter">High</text>
+          </svg>
+        </div>
+        <div class="yield-numbers">
+          <div class="yield-range">
+            <span id="yield-low" class="yield-num">—</span>
+            <span class="yield-separator">–</span>
+            <span id="yield-high" class="yield-num">—</span>
+          </div>
+          <div class="yield-unit-label" id="yield-unit-display">kg estimated</div>
+          <div class="yield-confidence">
+            Confidence: <strong id="yield-confidence">—</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Analysis -->
+      <div class="analysis-body">
+        <div class="analysis-section">
+          <h3>📊 Analysis Summary</h3>
+          <div id="analysis-text" class="analysis-text"></div>
+        </div>
+        <div class="analysis-section">
+          <h3>⚠️ Risk Factors</h3>
+          <div id="risk-text" class="tag-list"></div>
+        </div>
+        <div class="analysis-section">
+          <h3>✅ Recommendations</h3>
+          <div id="rec-text" class="rec-list"></div>
+        </div>
+        <div class="analysis-section">
+          <h3>📅 Harvest Timeline</h3>
+          <div id="harvest-text" class="analysis-text"></div>
+        </div>
+      </div>
+
+      <div class="results-footer">
+        <button id="new-estimate-btn" class="btn-primary">New Estimate</button>
+        <button id="save-result-btn" class="btn-ghost">Save to History</button>
+      </div>
+    </section>
+
+    <!-- Error Card -->
+    <div id="error-card" class="error-card hidden">
+      <span class="error-icon">⚠️</span>
+      <span id="error-msg">Something went wrong. Please check your API key and try again.</span>
+      <button id="dismiss-error" class="btn-ghost btn-sm">Dismiss</button>
+    </div>
+  </main>
+
+  <!-- History Panel -->
+  <aside id="history-panel" class="history-panel hidden">
+    <div class="history-header">
+      <h3>Estimate History</h3>
+      <button id="history-close" class="btn-ghost btn-sm">✕</button>
+    </div>
+    <div id="history-list" class="history-list">
+      <p class="history-empty">No saved estimates yet.</p>
+    </div>
+    <button id="clear-history-btn" class="btn-ghost btn-sm danger">Clear All</button>
+  </aside>
+  <div id="history-backdrop" class="history-backdrop hidden"></div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <p>FruitYield — Powered by Claude AI · Data stays in your browser · <a href="https://github.com" target="_blank">View on GitHub</a></p>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
