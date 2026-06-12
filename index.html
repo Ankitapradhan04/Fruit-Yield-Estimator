@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FruitYield — AI Crop Estimation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── TOKENS ── */
+    :root {
+      --earth:    #1c1612;
+      --mid:      #3d2e1e;
+      --bark:     #7a5c3a;
+      --clay:     #c4845a;
+      --harvest:  #e07b39;
+      --leaf:     #6bba5e;
+      --green:    #2e7d48;
+      --canopy:   #1a4731;
+      --cream:    #faf7f2;
+      --parch:    #f0ebe0;
+      --paper:    #fffdf9;
+      --border:   #e3ddd3;
+      --muted:    #6b5f50;
+      --faint:    #a89a87;
+      --danger:   #c0392b;
+      --danger-bg:#fdf0ef;
+      --danger-bd:#f5c6c2;
+
+      --ff-display: 'Playfair Display', Georgia, serif;
+      --ff-body:    'Inter', system-ui, sans-serif;
+      --ff-mono:    'JetBrains Mono', monospace;
+
+      --r-sm: 6px; --r-md: 12px; --r-lg: 20px; --r-xl: 28px;
+      --shadow:    0 4px 24px rgba(28,22,18,.08);
+      --shadow-lg: 0 8px 40px rgba(28,22,18,.14);
+      --t: .22s ease;
+    }
+
+    /* ── RESET ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--ff-body); background: var(--cream); color: var(--earth); line-height: 1.6; overflow-x: hidden; }
+    button { font-family: var(--ff-body); cursor: pointer; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(28,22,18,.75);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-box {
+      background: var(--paper); border-radius: var(--r-xl);
+      padding: 2.5rem; max-width: 460px; width: 100%;
+      box-shadow: 0 24px 80px rgba(28,22,18,.3);
+      text-align: center;
+      animation: pop .35s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes pop { from { transform: translateY(28px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+    .modal-icon { font-size: 3rem; margin-bottom: .6rem; }
+    .modal-box h2 { font-family: var(--ff-display); font-size: 1.75rem; margin-bottom: .6rem; }
+    .modal-box p  { color: var(--muted); font-size: .88rem; line-height: 1.7; margin-bottom: 1.4rem; }
+    .modal-input {
+      width: 100%; padding: .85rem 1.1rem;
+      border: 2px solid var(--border); border-radius: var(--r-md);
+      font-family: var(--ff-mono); font-size: .88rem;
+      background: var(--cream); color: var(--earth);
+      outline: none; margin-bottom: 1.2rem;
+      transition: border-color var(--t);
+    }
+    .modal-input:focus { border-color: var(--harvest); }
+    .modal-input.err  { border-color: var(--danger); }
+    .modal-actions { display: flex; flex-direction: column; gap: .7rem; align-items: center; }
+    .modal-link { font-size: .85rem; color: var(--green); font-weight: 500; text-decoration: none; }
+    .modal-link:hover { text-decoration: underline; }
+    .modal-note { margin-top: 1rem; font-size: .75rem; color: var(--faint); }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: .45rem;
+      border: none; border-radius: var(--r-md);
+      padding: .7rem 1.6rem; font-size: .9rem; font-weight: 600;
+      transition: all var(--t); text-decoration: none;
+    }
+    .btn-primary { background: var(--harvest); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #c96b28; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(224,123,57,.35); }
+    .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+    .btn-lg { padding: 1rem 2.25rem; font-size: 1rem; border-radius: var(--r-lg); }
+    .btn-ghost {
+      background: transparent; color: var(--muted);
+      border: 1.5px solid var(--border); font-weight: 500;
+    }
+    .btn-ghost:hover { border-color: var(--bark); color: var(--earth); background: var(--parch); }
+    .btn-ghost.danger { color: var(--danger); border-color: var(--danger-bd); }
+    .btn-ghost.danger:hover { background: var(--danger-bg); }
+    .btn-sm { padding: .38rem .8rem; font-size: .78rem; }
+
+    /* ── HEADER ── */
+    .site-header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(250,247,242,.93); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner {
+      max-width: 900px; margin: 0 auto; padding: .85rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { display: flex; align-items: center; gap: .45rem; }
+    .logo-mark { font-size: 1.4rem; }
+    .logo-text { font-family: var(--ff-display); font-size: 1.3rem; font-weight: 700; }
+    nav { display: flex; gap: .5rem; }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative; overflow: hidden;
+      background: linear-gradient(155deg, var(--canopy), var(--mid) 60%, var(--earth));
+      color: #fff; padding: 5rem 1.5rem 4rem; text-align: center;
+    }
+    .orbs { position: absolute; inset: 0; pointer-events: none; }
+    .orb {
+      position: absolute; border-radius: 50%;
+      filter: blur(60px); opacity: .14;
+      animation: drift 8s ease-in-out infinite alternate;
+    }
+    .orb1 { width: 400px; height: 400px; background: var(--leaf); top: -80px; left: -80px; }
+    .orb2 { width: 300px; height: 300px; background: var(--harvest); top: 30px; right: -60px; animation-delay: -3s; }
+    .orb3 { width: 200px; height: 200px; background: #f0e060; bottom: -50px; left: 42%; animation-delay: -5s; }
+    @keyframes drift { to { transform: translate(18px,18px) scale(1.08); } }
+
+    .hero-inner { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; }
+    .hero-badge {
+      display: inline-block; margin-bottom: 1.2rem;
+      background: rgba(107,186,94,.18); border: 1px solid rgba(107,186,94,.35);
+      color: #aee8a3; padding: .28rem .95rem; border-radius: 99px;
+      font-size: .76rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    }
+    .hero h1 { font-family: var(--ff-display); font-size: clamp(2.4rem,6vw,3.8rem); font-weight: 900; line-height: 1.1; margin-bottom: 1.1rem; }
+    .hero h1 em { color: #f0c070; font-style: normal; }
+    .hero p { font-size: 1rem; color: rgba(255,255,255,.75); max-width: 480px; margin: 0 auto; }
+    .scroll-hint { position: relative; z-index: 1; margin-top: 2.5rem; font-size: .78rem; color: rgba(255,255,255,.38); letter-spacing: .1em; animation: bob 2.5s ease-in-out infinite; }
+    @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
+
+    /* ── LAYOUT ── */
+    .app { max-width: 900px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; display: flex; flex-direction: column; gap: 2rem; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--paper); border-radius: var(--r-xl);
+      border: 1px solid var(--border); box-shadow: var(--shadow);
+      overflow: hidden; transition: box-shadow var(--t);
+    }
+    .card:hover { box-shadow: var(--shadow-lg); }
+    .card-head { padding: 1.75rem 2rem .25rem; }
+    .card-head h2 { font-family: var(--ff-display); font-size: 1.45rem; font-weight: 700; margin-bottom: .3rem; }
+    .card-head p  { color: var(--muted); font-size: .88rem; }
+
+    /* ── FORM GRID ── */
+    .fg { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; padding: 1.5rem 2rem; }
+    .f-group { display: flex; flex-direction: column; gap: .4rem; }
+    .f-group.span2 { grid-column: 1/-1; }
+    label { font-size: .83rem; font-weight: 600; color: var(--earth); }
+    .hint { font-weight: 400; color: var(--faint); }
+
+    /* inputs */
+    input[type="number"], input[type="text"], textarea, select {
+      width: 100%; padding: .68rem .9rem;
+      border: 1.5px solid var(--border); border-radius: var(--r-sm);
+      font-family: var(--ff-body); font-size: .88rem;
+      color: var(--earth); background: var(--cream);
+      outline: none; appearance: none; -webkit-appearance: none;
+      transition: border-color var(--t), box-shadow var(--t);
+    }
+    input[type="number"]:focus, textarea:focus, select:focus {
+      border-color: var(--harvest);
+      box-shadow: 0 0 0 3px rgba(224,123,57,.12);
+    }
+    textarea { resize: vertical; min-height: 78px; }
+
+    /* select wrapper with arrow */
+    .sel { position: relative; }
+    .sel::after { content: '▾'; position: absolute; right: .85rem; top: 50%; transform: translateY(-50%); color: var(--bark); pointer-events: none; font-size: .78rem; }
+    .sel select { padding-right: 2rem; }
+
+    /* number + unit row */
+    .ug { display: flex; }
+    .ug input { border-radius: var(--r-sm) 0 0 var(--r-sm); flex: 1; min-width: 0; }
+    .ug select, .ug .ulabel {
+      flex-shrink: 0; width: auto; min-width: 74px;
+      padding: 0 .75rem;
+      border: 1.5px solid var(--border); border-left: none;
+      border-radius: 0 var(--r-sm) var(--r-sm) 0;
+      background: var(--parch); color: var(--bark);
+      font-size: .78rem; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      appearance: none; -webkit-appearance: none;
+    }
+    .ug .ulabel {
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--ff-body);
+    }
+    .ug select:focus { box-shadow: none; border-color: var(--harvest); }
+
+    /* health slider */
+    .slider-wrap { display: flex; flex-direction: column; gap: .4rem; }
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 6px; border-radius: 99px;
+      background: linear-gradient(to right,#c4845a,#e07b39,#6bba5e,#2e7d48);
+      border: none; padding: 0; cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--paper); border: 2.5px solid var(--harvest);
+      box-shadow: 0 2px 6px rgba(0,0,0,.15); cursor: pointer;
+    }
+    .slider-labels { display: flex; justify-content: space-between; font-size: .7rem; color: var(--faint); }
+    .slider-val { text-align: center; font-size: .8rem; font-weight: 600; color: var(--harvest); }
+
+    .form-actions { padding: .5rem 2rem 2rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .spin { display: inline-block; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── RESULTS ── */
+    .results-head { display: flex; align-items: center; justify-content: space-between; padding: 1.75rem 2rem 0; }
+    .results-head h2 { font-family: var(--ff-display); font-size: 1.45rem; font-weight: 700; }
+
+    .yield-hero { display: flex; align-items: center; justify-content: center; gap: 2.5rem; padding: 2rem; flex-wrap: wrap; }
+    .yield-meter { width: 220px; height: 130px; display: block; }
+
+    .yield-nums { text-align: center; }
+    .yield-range { display: flex; align-items: baseline; gap: .45rem; justify-content: center; margin-bottom: .35rem; }
+    .yield-val { font-family: var(--ff-display); font-size: 2.4rem; font-weight: 900; }
+    .yield-sep { font-size: 1.4rem; color: var(--faint); }
+    .yield-unit { font-size: .88rem; color: var(--muted); margin-bottom: .45rem; }
+    .yield-conf { font-size: .83rem; color: var(--muted); }
+    .yield-conf strong { color: var(--green); }
+
+    .analysis-body { padding: 0 2rem 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+    .a-section h3 { font-size: .92rem; font-weight: 700; margin-bottom: .55rem; }
+    .a-text { font-size: .88rem; color: var(--muted); line-height: 1.75; }
+
+    .tags { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .tag { padding: .28rem .75rem; border-radius: 99px; font-size: .76rem; font-weight: 500; }
+    .tag-r { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-bd); }
+
+    .recs { display: flex; flex-direction: column; gap: .55rem; }
+    .rec { display: flex; gap: .55rem; font-size: .88rem; color: var(--muted); line-height: 1.55; }
+    .rec-arrow { color: var(--green); font-weight: 700; flex-shrink: 0; }
+
+    .results-foot { padding: 1rem 2rem 2rem; display: flex; gap: 1rem; flex-wrap: wrap; }
+
+    /* ── ERROR BAR ── */
+    .error-bar {
+      display: flex; align-items: center; gap: 1rem;
+      background: var(--danger-bg); border: 1px solid var(--danger-bd);
+      border-radius: var(--r-lg); padding: 1rem 1.5rem;
+      font-size: .88rem; color: var(--danger);
+    }
+    .error-bar span { flex: 1; }
+
+    /* ── HISTORY PANEL ── */
+    .backdrop { position: fixed; inset: 0; background: rgba(28,22,18,.42); z-index: 199; }
+    .backdrop.hidden { display: none; }
+    .hpanel {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: min(380px, 93vw);
+      background: var(--paper); border-left: 1px solid var(--border);
+      z-index: 200; display: flex; flex-direction: column;
+      box-shadow: -10px 0 40px rgba(28,22,18,.12);
+      animation: slideR .28s ease;
+    }
+    .hpanel.hidden { display: none; }
+    @keyframes slideR { from { transform: translateX(100%); } }
+    .hpanel-head { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .hpanel-head h3 { font-family: var(--ff-display); font-size: 1.2rem; }
+    .hlist { flex: 1; overflow-y: auto; padding: 1rem 1.5rem; display: flex; flex-direction: column; gap: .7rem; }
+    .hempty { color: var(--faint); font-size: .88rem; text-align: center; padding: 2.5rem 0; }
+    .hitem { background: var(--cream); border: 1px solid var(--border); border-radius: var(--r-md); padding: .8rem 1rem; cursor: pointer; transition: background var(--t); }
+    .hitem:hover { background: var(--parch); }
+    .hitem-title { font-size: .88rem; font-weight: 600; }
+    .hitem-sub   { font-size: .76rem; color: var(--faint); margin-top: .15rem; }
+    .hpanel-foot { padding: .75rem 1.5rem 1.25rem; }
+
+    /* ── FOOTER ── */
+    .site-footer { text-align: center; padding: 2rem 1.5rem; border-top: 1px solid var(--border); font-size: .78rem; color: var(--faint); }
+    .site-footer a { color: var(--green); text-decoration: none; }
+    .site-footer a:hover { text-decoration: underline; }
+
+    /* ── UTILS ── */
+    .hidden { display: none !important; }
+    .fadeIn { animation: fadeIn .4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .fg { grid-template-columns: 1fr; }
+      .f-group.span2 { grid-column: 1; }
+      .card-head, .fg, .form-actions, .analysis-body, .results-foot { padding-left: 1.2rem; padding-right: 1.2rem; }
+      .yield-hero { gap: 1.2rem; }
+      .hero { padding: 3.5rem 1.2rem 3rem; }
+      nav .btn-ghost:first-child { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .orb, .scroll-hint, .spin { animation: none; }
+      .fadeIn { animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── API KEY MODAL ── -->
+<div id="apiModal" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-icon">🌿</div>
+    <h2>Enter Your API Key</h2>
+    <p>Your Anthropic API key is stored only in this browser session and sent directly to Anthropic's servers — never anywhere else.</p>
+    <input id="apiKeyInput" type="password" class="modal-input" placeholder="sk-ant-..." autocomplete="off" />
+    <div class="modal-actions">
+      <button id="saveKeyBtn" class="btn btn-primary">Start Estimating</button>
+      <a href="https://console.anthropic.com/keys" target="_blank" class="modal-link">Get a free API key →</a>
+    </div>
+    <p class="modal-note">Key is cleared automatically when you close this tab.</p>
+  </div>
+</div>
+
+<!-- ── HEADER ── -->
+<header class="site-header">
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-mark">🌾</span>
+      <span class="logo-text">FruitYield</span>
+    </div>
+    <nav>
+      <button id="changeKeyBtn" class="btn btn-ghost btn-sm">🔑 Change Key</button>
+      <button id="historyBtn" class="btn btn-ghost btn-sm">📋 History</button>
+    </nav>
+  </div>
+</header>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="orbs">
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+  </div>
+  <div class="hero-inner">
+    <div class="hero-badge">AI-Powered Agricultural Intelligence</div>
+    <h1>Predict Your<br/><em>Harvest Yield</em></h1>
+    <p>Enter your farm's conditions and get a data-grounded AI yield estimate with actionable recommendations — in seconds.</p>
+  </div>
+  <div class="scroll-hint">↓ Fill the form below</div>
+</section>
+
+<!-- ── MAIN APP ── -->
+<main class="app">
+
+  <!-- Form Card -->
+  <section class="card">
+    <div class="card-head">
+      <h2>Farm Parameters</h2>
+      <p>Fill in your current crop conditions for the most accurate estimate.</p>
+    </div>
+
+    <div class="fg">
+
+      <!-- Fruit Type -->
+      <div class="f-group span2">
+        <label for="fruitType">Fruit / Crop Type</label>
+        <div class="sel">
+          <select id="fruitType">
+            <option value="">— Select a fruit —</option>
+            <optgroup label="Tropical">
+              <option value="Mango">Mango</option>
+              <option value="Banana">Banana</option>
+              <option value="Papaya">Papaya</option>
+              <option value="Pineapple">Pineapple</option>
+              <option value="Guava">Guava</option>
+              <option value="Jackfruit">Jackfruit</option>
+              <option value="Litchi">Litchi</option>
+            </optgroup>
+            <optgroup label="Citrus">
+              <option value="Orange">Orange</option>
+              <option value="Lemon">Lemon</option>
+              <option value="Lime">Lime</option>
+              <option value="Grapefruit">Grapefruit</option>
+              <option value="Mandarin">Mandarin</option>
+            </optgroup>
+            <optgroup label="Berries">
+              <option value="Strawberry">Strawberry</option>
+              <option value="Blueberry">Blueberry</option>
+              <option value="Grapes">Grapes</option>
+            </optgroup>
+            <optgroup label="Temperate">
+              <option value="Apple">Apple</option>
+              <option value="Pear">Pear</option>
+              <option value="Peach">Peach</option>
+              <option value="Plum">Plum</option>
+              <option value="Cherry">Cherry</option>
+            </optgroup>
+            <optgroup label="Other">
+              <option value="Watermelon">Watermelon</option>
+              <option value="Pomegranate">Pomegranate</option>
+              <option value="Avocado">Avocado</option>
+              <option value="Custom / Other">Custom / Other</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+
+      <!-- Land Area -->
+      <div class="f-group">
+        <label for="landArea">Land Area</label>
+        <div class="ug">
+          <input type="number" id="landArea" placeholder="e.g. 2.5" min="0.01" step="0.01" />
+          <select id="landUnit">
+            <option value="acres">Acres</option>
+            <option value="hectares">Hectares</option>
+            <option value="bigha">Bigha</option>
+            <option value="sq meters">Sq.m</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Trees -->
+      <div class="f-group">
+        <label for="treeCount">No. of Trees / Plants</label>
+        <input type="number" id="treeCount" placeholder="e.g. 120" min="1" />
+      </div>
+
+      <!-- Age -->
+      <div class="f-group">
+        <label for="treeAge">Avg. Tree / Plant Age</label>
+        <div class="ug">
+          <input type="number" id="treeAge" placeholder="e.g. 5" min="0" />
+          <select id="ageUnit">
+            <option value="years">Yrs</option>
+            <option value="months">Mon</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Season -->
+      <div class="f-group">
+        <label for="season">Current Season</label>
+        <div class="sel">
+          <select id="season">
+            <option value="Summer">Summer</option>
+            <option value="Monsoon / Rainy">Monsoon / Rainy</option>
+            <option value="Post-Monsoon">Post-Monsoon</option>
+            <option value="Winter">Winter</option>
+            <option value="Spring">Spring</option>
+            <option value="Autumn">Autumn</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Soil -->
+      <div class="f-group">
+        <label for="soilType">Soil Type</label>
+        <div class="sel">
+          <select id="soilType">
+            <option value="Red loamy">Red Loamy</option>
+            <option value="Black cotton">Black Cotton</option>
+            <option value="Alluvial">Alluvial</option>
+            <option value="Sandy loam">Sandy Loam</option>
+            <option value="Clay">Clay</option>
+            <option value="Laterite">Laterite</option>
+            <option value="Silty">Silty</option>
+            <option value="Unknown">Unknown / Other</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Irrigation -->
+      <div class="f-group">
+        <label for="irrigation">Irrigation Method</label>
+        <div class="sel">
+          <select id="irrigation">
+            <option value="Drip irrigation">Drip Irrigation</option>
+            <option value="Sprinkler">Sprinkler</option>
+            <option value="Flood / furrow">Flood / Furrow</option>
+            <option value="Rainfed only">Rainfed Only</option>
+            <option value="Mixed">Mixed</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Fertilizer -->
+      <div class="f-group">
+        <label for="fertilizer">Fertilizer Usage</label>
+        <div class="sel">
+          <select id="fertilizer">
+            <option value="Organic (compost / manure)">Organic (Compost / Manure)</option>
+            <option value="Chemical (NPK)">Chemical (NPK)</option>
+            <option value="Mixed organic + chemical">Mixed</option>
+            <option value="None">None</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Rainfall -->
+      <div class="f-group">
+        <label for="rainfall">Rainfall <span class="hint">(last 30 days)</span></label>
+        <div class="ug">
+          <input type="number" id="rainfall" placeholder="e.g. 80" min="0" />
+          <span class="ulabel">mm</span>
+        </div>
+      </div>
+
+      <!-- Temperature -->
+      <div class="f-group">
+        <label for="temperature">Avg. Temperature</label>
+        <div class="ug">
+          <input type="number" id="temperature" placeholder="e.g. 28" />
+          <select id="tempUnit">
+            <option value="°C">°C</option>
+            <option value="°F">°F</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Health -->
+      <div class="f-group span2">
+        <label>Crop Health Status</label>
+        <div class="slider-wrap">
+          <input type="range" id="health" min="1" max="5" value="3" />
+          <div class="slider-labels">
+            <span>Poor</span><span>Below Avg</span><span>Average</span><span>Good</span><span>Excellent</span>
+          </div>
+          <div class="slider-val" id="healthLabel">Average</div>
+        </div>
+      </div>
+
+      <!-- Pest -->
+      <div class="f-group">
+        <label for="pest">Pest / Disease Pressure</label>
+        <div class="sel">
+          <select id="pest">
+            <option value="None observed">None Observed</option>
+            <option value="Low">Low</option>
+            <option value="Moderate">Moderate</option>
+            <option value="High">High</option>
+            <option value="Severe">Severe</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Previous yield -->
+      <div class="f-group">
+        <label for="prevYield">Last Season's Yield <span class="hint">(optional)</span></label>
+        <div class="ug">
+          <input type="number" id="prevYield" placeholder="e.g. 4500" min="0" />
+          <select id="yieldUnit">
+            <option value="kg">kg</option>
+            <option value="tonnes">t</option>
+            <option value="quintals">qtl</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="f-group span2">
+        <label for="notes">Additional Notes <span class="hint">(optional)</span></label>
+        <textarea id="notes" rows="3" placeholder="Variety name, recent weather events, any specific observations..."></textarea>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button id="estimateBtn" class="btn btn-primary btn-lg">
+        <span id="btnIcon">🌱</span>
+        <span id="btnText">Estimate Yield</span>
+      </button>
+      <button id="resetBtn" class="btn btn-ghost">Reset Form</button>
+    </div>
+  </section>
+
+  <!-- Error bar -->
+  <div id="errorBar" class="error-bar hidden">
+    <span>⚠️</span>
+    <span id="errorMsg">Something went wrong. Check your API key and try again.</span>
+    <button id="dismissError" class="btn btn-ghost btn-sm">✕</button>
+  </div>
+
+  <!-- Results Card -->
+  <section id="resultsCard" class="card hidden">
+    <div class="results-head">
+      <h2>Yield Estimate</h2>
+      <button id="copyBtn" class="btn btn-ghost btn-sm">📋 Copy</button>
+    </div>
+
+    <!-- Gauge -->
+    <div class="yield-hero">
+      <svg class="yield-meter" viewBox="0 0 220 130" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gArc" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%"   stop-color="#e07b39"/>
+            <stop offset="50%"  stop-color="#6bba5e"/>
+            <stop offset="100%" stop-color="#2e7d48"/>
+          </linearGradient>
+        </defs>
+        <!-- track -->
+        <path d="M20,115 A90,90 0 0,1 200,115" fill="none" stroke="#e8e3d8" stroke-width="14" stroke-linecap="round"/>
+        <!-- fill -->
+        <path id="gArcFill" d="M20,115 A90,90 0 0,1 200,115" fill="none" stroke="url(#gArc)" stroke-width="14" stroke-linecap="round" stroke-dasharray="0 283"/>
+        <!-- needle -->
+        <line id="gNeedle" x1="110" y1="115" x2="110" y2="38" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="110" cy="115" r="6" fill="#1a1a1a"/>
+        <!-- scale labels -->
+        <text x="12"  y="130" fill="#aaa" font-size="9" font-family="Inter,sans-serif">Low</text>
+        <text x="93"  y="22"  fill="#aaa" font-size="9" font-family="Inter,sans-serif">Mid</text>
+        <text x="190" y="130" fill="#aaa" font-size="9" font-family="Inter,sans-serif">High</text>
+      </svg>
+
+      <div class="yield-nums">
+        <div class="yield-range">
+          <span id="yLow"  class="yield-val">—</span>
+          <span class="yield-sep">–</span>
+          <span id="yHigh" class="yield-val">—</span>
+        </div>
+        <div class="yield-unit">kg estimated</div>
+        <div class="yield-conf">Confidence: <strong id="yConf">—</strong></div>
+      </div>
+    </div>
+
+    <!-- Analysis -->
+    <div class="analysis-body">
+      <div class="a-section">
+        <h3>📊 Analysis Summary</h3>
+        <div id="aSummary" class="a-text"></div>
+      </div>
+      <div class="a-section">
+        <h3>⚠️ Risk Factors</h3>
+        <div id="aRisks" class="tags"></div>
+      </div>
+      <div class="a-section">
+        <h3>✅ Recommendations</h3>
+        <div id="aRecs" class="recs"></div>
+      </div>
+      <div class="a-section">
+        <h3>📅 Harvest Timeline</h3>
+        <div id="aHarvest" class="a-text"></div>
+      </div>
+    </div>
+
+    <div class="results-foot">
+      <button id="newEstimateBtn" class="btn btn-primary">New Estimate</button>
+      <button id="saveBtn" class="btn btn-ghost">Save to History</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── HISTORY PANEL ── -->
+<div id="backdrop" class="backdrop hidden"></div>
+<aside id="hpanel" class="hpanel hidden">
+  <div class="hpanel-head">
+    <h3>Estimate History</h3>
+    <button id="hClose" class="btn btn-ghost btn-sm">✕</button>
+  </div>
+  <div id="hlist" class="hlist">
+    <p class="hempty">No saved estimates yet.</p>
+  </div>
+  <div class="hpanel-foot">
+    <button id="clearHistory" class="btn btn-ghost btn-sm danger" style="width:100%">Clear All History</button>
+  </div>
+</aside>
+
+<!-- ── FOOTER ── -->
+<footer class="site-footer">
+  FruitYield — Powered by Claude AI &nbsp;·&nbsp; Data stays in your browser &nbsp;·&nbsp;
+  <a href="https://github.com/Ankitapradhan04" target="_blank">GitHub</a>
+</footer>
+
+<script>
+'use strict';
+
+// ── State ─────────────────────────────────────────────────────
+const state = {
+  apiKey: sessionStorage.getItem('fy_key') || '',
+  history: [],
+  current: null,
+};
+try { state.history = JSON.parse(localStorage.getItem('fy_history') || '[]'); } catch(e) {}
+
+// ── Helpers ───────────────────────────────────────────────────
+const q  = id => document.getElementById(id);
+const hl = ['Poor','Below Average','Average','Good','Excellent'];
+
+// ── Health slider ─────────────────────────────────────────────
+q('health').addEventListener('input', e => {
+  q('healthLabel').textContent = hl[e.target.value - 1];
+});
+
+// ── Modal ─────────────────────────────────────────────────────
+function showModal() {
+  q('apiModal').classList.remove('hidden');
+  q('apiKeyInput').value = state.apiKey;
+  setTimeout(() => q('apiKeyInput').focus(), 50);
+}
+function hideModal() { q('apiModal').classList.add('hidden'); }
+
+// Show modal on load if no key stored
+if (!state.apiKey) showModal();
+
+q('saveKeyBtn').addEventListener('click', () => {
+  const k = q('apiKeyInput').value.trim();
+  if (!k.startsWith('sk-ant-')) {
+    q('apiKeyInput').classList.add('err');
+    q('apiKeyInput').focus();
+    return;
+  }
+  q('apiKeyInput').classList.remove('err');
+  state.apiKey = k;
+  sessionStorage.setItem('fy_key', k);
+  hideModal();
+});
+q('apiKeyInput').addEventListener('keydown', e => {
+  q('apiKeyInput').classList.remove('err');
+  if (e.key === 'Enter') q('saveKeyBtn').click();
+});
+q('changeKeyBtn').addEventListener('click', showModal);
+
+// ── Form data ─────────────────────────────────────────────────
+function getForm() {
+  return {
+    fruitType:   q('fruitType').value,
+    landArea:    q('landArea').value,
+    landUnit:    q('landUnit').value,
+    treeCount:   q('treeCount').value,
+    treeAge:     q('treeAge').value,
+    ageUnit:     q('ageUnit').value,
+    season:      q('season').value,
+    soilType:    q('soilType').value,
+    irrigation:  q('irrigation').value,
+    fertilizer:  q('fertilizer').value,
+    rainfall:    q('rainfall').value,
+    temperature: q('temperature').value,
+    tempUnit:    q('tempUnit').value,
+    health:      hl[q('health').value - 1],
+    pest:        q('pest').value,
+    prevYield:   q('prevYield').value,
+    yieldUnit:   q('yieldUnit').value,
+    notes:       q('notes').value.trim(),
+  };
+}
+
+function validate(d) {
+  if (!d.fruitType)                        return 'Please select a fruit or crop type.';
+  if (!d.landArea  || +d.landArea  <= 0)   return 'Please enter a valid land area.';
+  if (!d.treeCount || +d.treeCount <  1)   return 'Please enter the number of trees / plants.';
+  if (d.treeAge === '' || +d.treeAge < 0)  return 'Please enter the average plant age.';
+  return null;
+}
+
+// ── Reset ─────────────────────────────────────────────────────
+q('resetBtn').addEventListener('click', () => {
+  ['landArea','treeCount','treeAge','rainfall','temperature','prevYield'].forEach(id => { q(id).value = ''; });
+  q('notes').value = '';
+  q('fruitType').value = '';
+  q('health').value = 3;
+  q('healthLabel').textContent = 'Average';
+  q('resultsCard').classList.add('hidden');
+  q('errorBar').classList.add('hidden');
+});
+
+// ── Prompt builder ────────────────────────────────────────────
+function buildPrompt(d) {
+  const prev  = d.prevYield ? `Previous season yield: ${d.prevYield} ${d.yieldUnit}.` : 'No prior yield data.';
+  const notes = d.notes ? `\nFarmer notes: "${d.notes}"` : '';
+  return `You are a senior agronomist and crop-yield specialist. Using the farm data below, produce a realistic yield estimate grounded in published ICAR / FAO benchmarks.
+
+FARM DATA:
+- Crop: ${d.fruitType}
+- Land: ${d.landArea} ${d.landUnit}
+- Plants: ${d.treeCount}
+- Plant age: ${d.treeAge} ${d.ageUnit}
+- Season: ${d.season}
+- Soil: ${d.soilType}
+- Irrigation: ${d.irrigation}
+- Fertilizer: ${d.fertilizer}
+- Rainfall (30 d): ${d.rainfall || 'N/A'} mm
+- Temperature: ${d.temperature || 'N/A'} ${d.tempUnit}
+- Crop health: ${d.health}
+- Pest/disease pressure: ${d.pest}
+- ${prev}${notes}
+
+Reply ONLY with a single valid JSON object — no markdown, no code fences, no extra text:
+{
+  "yield_low_kg": <integer>,
+  "yield_high_kg": <integer>,
+  "confidence": "Low" or "Medium" or "High",
+  "summary": "<2-3 sentences explaining the key drivers of this estimate>",
+  "risks": ["<risk 1>","<risk 2>","<risk 3>"],
+  "recommendations": ["<rec 1>","<rec 2>","<rec 3>","<rec 4>"],
+  "harvest_timeline": "<2-3 sentences on expected harvest window, readiness signs, and post-harvest tip>"
+}`;
+}
+
+// ── Claude API ────────────────────────────────────────────────
+async function callClaude(prompt) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': state.apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    if (res.status === 401) throw new Error('Invalid API key — please update it.');
+    if (res.status === 429) throw new Error('Rate limit reached — wait a moment and retry.');
+    throw new Error(e?.error?.message || `API error ${res.status}.`);
+  }
+
+  const data = await res.json();
+  const raw  = data.content.map(b => b.text || '').join('');
+  // Strip any accidental markdown fences
+  const clean = raw.replace(/^```(?:json)?\s*/im,'').replace(/\s*```\s*$/m,'').trim();
+  return JSON.parse(clean);
+}
+
+// ── Gauge animation ───────────────────────────────────────────
+function animateGauge(frac) {
+  const ARC    = 283;
+  const fill   = q('gArcFill');
+  const needle = q('gNeedle');
+  let t0 = null;
+  const dur = 900;
+
+  function frame(ts) {
+    if (!t0) t0 = ts;
+    const p = Math.min((ts - t0) / dur, 1);
+    const e = 1 - Math.pow(1 - p, 3);
+    const f = e * frac;
+
+    fill.setAttribute('stroke-dasharray', `${f * ARC} ${ARC}`);
+
+    // Needle: left = -90°, right = +90°; pivot = (110,115)
+    const deg = -90 + f * 180;
+    const rad = deg * Math.PI / 180;
+    const len = 77;
+    const x2 = 110 + len * Math.sin(rad);
+    const y2 = 115 - len * Math.cos(rad);
+    needle.setAttribute('x2', x2.toFixed(1));
+    needle.setAttribute('y2', y2.toFixed(1));
+
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+// ── Render results ────────────────────────────────────────────
+function renderResults(r, d) {
+  state.current = { r, d, ts: Date.now() };
+
+  q('yLow').textContent  = Number(r.yield_low_kg).toLocaleString('en-IN');
+  q('yHigh').textContent = Number(r.yield_high_kg).toLocaleString('en-IN');
+  q('yConf').textContent = r.confidence;
+
+  const mid     = (r.yield_low_kg + r.yield_high_kg) / 2;
+  const trees   = Math.max(1, +d.treeCount);
+  const perTree = mid / trees;
+  const frac    = Math.min(Math.max(perTree / 40, 0.04), 1);
+  animateGauge(frac);
+
+  q('aSummary').textContent = r.summary || '';
+
+  const riskEl = q('aRisks');
+  riskEl.innerHTML = '';
+  (r.risks || []).forEach(t => {
+    const s = document.createElement('span');
+    s.className = 'tag tag-r';
+    s.textContent = t;
+    riskEl.appendChild(s);
+  });
+
+  const recEl = q('aRecs');
+  recEl.innerHTML = '';
+  (r.recommendations || []).forEach(t => {
+    const div = document.createElement('div');
+    div.className = 'rec';
+    div.innerHTML = `<span class="rec-arrow">→</span><span>${t}</span>`;
+    recEl.appendChild(div);
+  });
+
+  q('aHarvest').textContent = r.harvest_timeline || '';
+
+  const card = q('resultsCard');
+  card.classList.remove('hidden','fadeIn');
+  void card.offsetWidth;
+  card.classList.add('fadeIn');
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Estimate button ───────────────────────────────────────────
+q('estimateBtn').addEventListener('click', async () => {
+  q('errorBar').classList.add('hidden');
+
+  if (!state.apiKey) { showModal(); return; }
+
+  const d   = getForm();
+  const err = validate(d);
+  if (err) { showErr(err); return; }
+
+  const btn = q('estimateBtn');
+  btn.disabled = true;
+  q('btnText').textContent = 'Analysing…';
+  q('btnIcon').innerHTML = '<span class="spin">⏳</span>';
+
+  try {
+    const result = await callClaude(buildPrompt(d));
+    renderResults(result, d);
+  } catch (ex) {
+    showErr(ex.message || 'Something went wrong — please try again.');
+  } finally {
+    btn.disabled = false;
+    q('btnText').textContent = 'Estimate Yield';
+    q('btnIcon').textContent = '🌱';
+  }
+});
+
+function showErr(msg) {
+  q('errorMsg').textContent = msg;
+  q('errorBar').classList.remove('hidden');
+  q('errorBar').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+q('dismissError').addEventListener('click', () => q('errorBar').classList.add('hidden'));
+
+// ── New estimate ──────────────────────────────────────────────
+q('newEstimateBtn').addEventListener('click', () => {
+  q('resultsCard').classList.add('hidden');
+  window.scrollTo({ top: document.querySelector('.app').offsetTop - 70, behavior: 'smooth' });
+});
+
+// ── Copy ─────────────────────────────────────────────────────
+q('copyBtn').addEventListener('click', () => {
+  if (!state.current) return;
+  const { r, d } = state.current;
+  const txt = [
+    `FruitYield Estimate — ${d.fruitType}`,
+    `Farm: ${d.landArea} ${d.landUnit} | ${d.treeCount} plants | Age: ${d.treeAge} ${d.ageUnit}`,
+    `Season: ${d.season} | Health: ${d.health} | Pest: ${d.pest}`,
+    '',
+    `YIELD: ${Number(r.yield_low_kg).toLocaleString('en-IN')} – ${Number(r.yield_high_kg).toLocaleString('en-IN')} kg`,
+    `Confidence: ${r.confidence}`,
+    '',
+    `ANALYSIS:\n${r.summary}`,
+    '',
+    `RISKS: ${(r.risks||[]).join(' | ')}`,
+    '',
+    `RECOMMENDATIONS:\n${(r.recommendations||[]).map((x,i)=>`${i+1}. ${x}`).join('\n')}`,
+    '',
+    `HARVEST TIMELINE:\n${r.harvest_timeline}`,
+  ].join('\n');
+
+  const copy = (text) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    return Promise.resolve();
+  };
+
+  copy(txt).then(() => {
+    q('copyBtn').textContent = '✅ Copied!';
+    setTimeout(() => { q('copyBtn').innerHTML = '📋 Copy'; }, 2200);
+  });
+});
+
+// ── Save ─────────────────────────────────────────────────────
+q('saveBtn').addEventListener('click', () => {
+  if (!state.current) return;
+  state.history.unshift(state.current);
+  if (state.history.length > 25) state.history.length = 25;
+  try { localStorage.setItem('fy_history', JSON.stringify(state.history)); } catch(e) {}
+  q('saveBtn').textContent = '✅ Saved!';
+  setTimeout(() => { q('saveBtn').textContent = 'Save to History'; }, 2000);
+  renderHistory();
+});
+
+// ── History panel ─────────────────────────────────────────────
+function renderHistory() {
+  const list = q('hlist');
+  list.innerHTML = '';
+  if (!state.history.length) {
+    list.innerHTML = '<p class="hempty">No saved estimates yet.</p>';
+    return;
+  }
+  state.history.forEach(entry => {
+    const { r, d, ts } = entry;
+    const date = new Date(ts).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+    const el = document.createElement('div');
+    el.className = 'hitem';
+    el.innerHTML = `
+      <div class="hitem-title">${d.fruitType} &nbsp;·&nbsp; ${d.landArea} ${d.landUnit}</div>
+      <div class="hitem-sub">${Number(r.yield_low_kg).toLocaleString('en-IN')}–${Number(r.yield_high_kg).toLocaleString('en-IN')} kg &nbsp;·&nbsp; ${r.confidence} confidence &nbsp;·&nbsp; ${date}</div>
+    `;
+    el.addEventListener('click', () => { renderResults(r, d); closeHistory(); });
+    list.appendChild(el);
+  });
+}
+
+function openHistory()  { q('hpanel').classList.remove('hidden'); q('backdrop').classList.remove('hidden'); renderHistory(); }
+function closeHistory() { q('hpanel').classList.add('hidden');    q('backdrop').classList.add('hidden');    }
+
+q('historyBtn').addEventListener('click', openHistory);
+q('hClose').addEventListener('click', closeHistory);
+q('backdrop').addEventListener('click', closeHistory);
+q('clearHistory').addEventListener('click', () => {
+  if (!confirm('Clear all saved estimates?')) return;
+  state.history = [];
+  try { localStorage.removeItem('fy_history'); } catch(e) {}
+  renderHistory();
+});
+</script>
+</body>
+</html>
